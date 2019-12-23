@@ -80,8 +80,8 @@ impl CheckInfo {
                 gold_check_squares,                                       // PieceType::PRO_LANCE
                 gold_check_squares,                                       // PieceType::PRO_KNIGHT
                 gold_check_squares,                                       // PieceType::PRO_SILVER
-                bishop_check_squares | ATTACK_TABLE.king.attack(ksq),     // PieceType::HORSE
-                rook_check_squares | ATTACK_TABLE.king.attack(ksq),       // PieceType::DRAGON
+                &bishop_check_squares | &ATTACK_TABLE.king.attack(ksq),   // PieceType::HORSE
+                &rook_check_squares | &ATTACK_TABLE.king.attack(ksq),     // PieceType::DRAGON
             ],
         }
     }
@@ -482,7 +482,7 @@ impl EvalList {
         new_for_hand_pt(Piece::W_ROOK, &mut list, &mut index);
         new_for_hand_pt(Piece::B_GOLD, &mut list, &mut index);
         new_for_hand_pt(Piece::W_GOLD, &mut list, &mut index);
-        let bb = pos.occupied_bb() & !pos.pieces_p(PieceType::KING);
+        let bb = &pos.occupied_bb() & &!&pos.pieces_p(PieceType::KING);
         for sq in bb {
             let pc = pos.piece_on(sq);
             let opp_pc = pc.inverse();
@@ -951,19 +951,19 @@ impl PositionBase {
         unsafe { *self.by_type_bb.get_unchecked(pt.0 as usize) }
     }
     fn pieces_cp(&self, c: Color, pt: PieceType) -> Bitboard {
-        self.pieces_c(c) & self.pieces_p(pt)
+        &self.pieces_c(c) & &self.pieces_p(pt)
     }
     fn pieces_pp(&self, pt0: PieceType, pt1: PieceType) -> Bitboard {
-        self.pieces_p(pt0) | self.pieces_p(pt1)
+        &self.pieces_p(pt0) | &self.pieces_p(pt1)
     }
     fn pieces_cpp(&self, c: Color, pt0: PieceType, pt1: PieceType) -> Bitboard {
-        self.pieces_c(c) & self.pieces_pp(pt0, pt1)
+        &self.pieces_c(c) & &self.pieces_pp(pt0, pt1)
     }
     fn pieces_ppp(&self, pt0: PieceType, pt1: PieceType, pt2: PieceType) -> Bitboard {
-        self.pieces_pp(pt0, pt1) | self.pieces_p(pt2)
+        &self.pieces_pp(pt0, pt1) | &self.pieces_p(pt2)
     }
     fn pieces_cppp(&self, c: Color, pt0: PieceType, pt1: PieceType, pt2: PieceType) -> Bitboard {
-        self.pieces_c(c) & self.pieces_ppp(pt0, pt1, pt2)
+        &self.pieces_c(c) & &self.pieces_ppp(pt0, pt1, pt2)
     }
     fn pieces_pppp(
         &self,
@@ -972,7 +972,7 @@ impl PositionBase {
         pt2: PieceType,
         pt3: PieceType,
     ) -> Bitboard {
-        self.pieces_ppp(pt0, pt1, pt2) | self.pieces_p(pt3)
+        &self.pieces_ppp(pt0, pt1, pt2) | &self.pieces_p(pt3)
     }
     fn pieces_cpppp(
         &self,
@@ -982,7 +982,7 @@ impl PositionBase {
         pt2: PieceType,
         pt3: PieceType,
     ) -> Bitboard {
-        self.pieces_c(c) & self.pieces_pppp(pt0, pt1, pt2, pt3)
+        &self.pieces_c(c) & &self.pieces_pppp(pt0, pt1, pt2, pt3)
     }
     fn pieces_ppppp(
         &self,
@@ -992,7 +992,7 @@ impl PositionBase {
         pt3: PieceType,
         pt4: PieceType,
     ) -> Bitboard {
-        self.pieces_pppp(pt0, pt1, pt2, pt3) | self.pieces_p(pt4)
+        &self.pieces_pppp(pt0, pt1, pt2, pt3) | &self.pieces_p(pt4)
     }
     pub fn pieces_golds(&self) -> Bitboard {
         debug_assert_eq!(
@@ -1028,7 +1028,7 @@ impl PositionBase {
         }
     }
     pub fn empty_bb(&self) -> Bitboard {
-        Bitboard::ALL & !self.occupied_bb()
+        &Bitboard::ALL & &!&self.occupied_bb()
     }
     pub fn hand(&self, c: Color) -> Hand {
         debug_assert!((c.0 as usize) < Color::NUM);
@@ -1103,18 +1103,19 @@ impl PositionBase {
     ) -> Bitboard {
         let opp = color_of_attackers.inverse();
         let golds = self.pieces_golds();
-        ((ATTACK_TABLE.pawn.attack(opp, to) & self.pieces_p(PieceType::PAWN))
-            | (ATTACK_TABLE.lance.attack(opp, to, occupied) & self.pieces_p(PieceType::LANCE))
-            | (ATTACK_TABLE.knight.attack(opp, to) & self.pieces_p(PieceType::KNIGHT))
-            | (ATTACK_TABLE.silver.attack(opp, to)
-                & (self.pieces_ppp(PieceType::SILVER, PieceType::KING, PieceType::DRAGON)))
-            | (ATTACK_TABLE.gold.attack(opp, to)
-                & (golds | self.pieces_pp(PieceType::KING, PieceType::HORSE)))
-            | (ATTACK_TABLE.bishop.magic(to).attack(occupied)
-                & (self.pieces_pp(PieceType::BISHOP, PieceType::HORSE)))
-            | (ATTACK_TABLE.rook.magic(to).attack(occupied)
-                & (self.pieces_pp(PieceType::ROOK, PieceType::DRAGON))))
-            & self.pieces_c(color_of_attackers)
+        &(&(&(&(&(&(&(&ATTACK_TABLE.pawn.attack(opp, to) & &self.pieces_p(PieceType::PAWN))
+            | &(&ATTACK_TABLE.lance.attack(opp, to, occupied)
+                & &self.pieces_p(PieceType::LANCE)))
+            | &(&ATTACK_TABLE.knight.attack(opp, to) & &self.pieces_p(PieceType::KNIGHT)))
+            | &(&ATTACK_TABLE.silver.attack(opp, to)
+                & &self.pieces_ppp(PieceType::SILVER, PieceType::KING, PieceType::DRAGON)))
+            | &(&ATTACK_TABLE.gold.attack(opp, to)
+                & &(&golds | &self.pieces_pp(PieceType::KING, PieceType::HORSE))))
+            | &(&ATTACK_TABLE.bishop.magic(to).attack(occupied)
+                & &self.pieces_pp(PieceType::BISHOP, PieceType::HORSE)))
+            | &(&ATTACK_TABLE.rook.magic(to).attack(occupied)
+                & &self.pieces_pp(PieceType::ROOK, PieceType::DRAGON)))
+            & &self.pieces_c(color_of_attackers)
     }
     pub fn attackers_to_except_king(
         &self,
@@ -1124,17 +1125,19 @@ impl PositionBase {
     ) -> Bitboard {
         let opp = color_of_attackers.inverse();
         let golds = self.pieces_golds();
-        ((ATTACK_TABLE.pawn.attack(opp, to) & self.pieces_p(PieceType::PAWN))
-            | (ATTACK_TABLE.lance.attack(opp, to, occupied) & self.pieces_p(PieceType::LANCE))
-            | (ATTACK_TABLE.knight.attack(opp, to) & self.pieces_p(PieceType::KNIGHT))
-            | (ATTACK_TABLE.silver.attack(opp, to)
-                & (self.pieces_pp(PieceType::SILVER, PieceType::DRAGON)))
-            | (ATTACK_TABLE.gold.attack(opp, to) & (golds | self.pieces_p(PieceType::HORSE)))
-            | (ATTACK_TABLE.bishop.magic(to).attack(occupied)
-                & (self.pieces_pp(PieceType::BISHOP, PieceType::HORSE)))
-            | (ATTACK_TABLE.rook.magic(to).attack(occupied)
-                & (self.pieces_pp(PieceType::ROOK, PieceType::DRAGON))))
-            & self.pieces_c(color_of_attackers)
+        &(&(&(&(&(&(&(&ATTACK_TABLE.pawn.attack(opp, to) & &self.pieces_p(PieceType::PAWN))
+            | &(&ATTACK_TABLE.lance.attack(opp, to, occupied)
+                & &self.pieces_p(PieceType::LANCE)))
+            | &(&ATTACK_TABLE.knight.attack(opp, to) & &self.pieces_p(PieceType::KNIGHT)))
+            | &(&ATTACK_TABLE.silver.attack(opp, to)
+                & &self.pieces_pp(PieceType::SILVER, PieceType::DRAGON)))
+            | &(&ATTACK_TABLE.gold.attack(opp, to)
+                & &(&golds | &self.pieces_p(PieceType::HORSE))))
+            | &(&ATTACK_TABLE.bishop.magic(to).attack(occupied)
+                & &self.pieces_pp(PieceType::BISHOP, PieceType::HORSE)))
+            | &(&ATTACK_TABLE.rook.magic(to).attack(occupied)
+                & &self.pieces_pp(PieceType::ROOK, PieceType::DRAGON)))
+            & &self.pieces_c(color_of_attackers)
     }
     pub fn attackers_to_except_king_lance_pawn(
         &self,
@@ -1144,40 +1147,45 @@ impl PositionBase {
     ) -> Bitboard {
         let opp = color_of_attackers.inverse();
         let golds = self.pieces_golds();
-        ((ATTACK_TABLE.knight.attack(opp, to) & self.pieces_p(PieceType::KNIGHT))
-            | (ATTACK_TABLE.silver.attack(opp, to)
-                & (self.pieces_pp(PieceType::SILVER, PieceType::DRAGON)))
-            | (ATTACK_TABLE.gold.attack(opp, to) & (golds | self.pieces_p(PieceType::HORSE)))
-            | (ATTACK_TABLE.bishop.magic(to).attack(occupied)
-                & (self.pieces_pp(PieceType::BISHOP, PieceType::HORSE)))
-            | (ATTACK_TABLE.rook.magic(to).attack(occupied)
-                & (self.pieces_pp(PieceType::ROOK, PieceType::DRAGON))))
-            & self.pieces_c(color_of_attackers)
+        &(&(&(&(&(&ATTACK_TABLE.knight.attack(opp, to) & &self.pieces_p(PieceType::KNIGHT))
+            | &(&ATTACK_TABLE.silver.attack(opp, to)
+                & &self.pieces_pp(PieceType::SILVER, PieceType::DRAGON)))
+            | &(&ATTACK_TABLE.gold.attack(opp, to)
+                & &(&golds | &self.pieces_p(PieceType::HORSE))))
+            | &(&ATTACK_TABLE.bishop.magic(to).attack(occupied)
+                & &self.pieces_pp(PieceType::BISHOP, PieceType::HORSE)))
+            | &(&ATTACK_TABLE.rook.magic(to).attack(occupied)
+                & &self.pieces_pp(PieceType::ROOK, PieceType::DRAGON)))
+            & &self.pieces_c(color_of_attackers)
     }
     pub fn attackers_to_both_color(&self, to: Square, occupied: &Bitboard) -> Bitboard {
         let golds = self.pieces_golds();
-        (((ATTACK_TABLE.pawn.attack(Color::BLACK, to) & self.pieces_p(PieceType::PAWN))
-            | (ATTACK_TABLE.lance.attack(Color::BLACK, to, occupied)
-                & self.pieces_p(PieceType::LANCE))
-            | (ATTACK_TABLE.knight.attack(Color::BLACK, to) & self.pieces_p(PieceType::KNIGHT))
-            | (ATTACK_TABLE.silver.attack(Color::BLACK, to) & self.pieces_p(PieceType::SILVER))
-            | (ATTACK_TABLE.gold.attack(Color::BLACK, to) & golds))
-            & self.pieces_c(Color::WHITE))
-            | (((ATTACK_TABLE.pawn.attack(Color::WHITE, to) & self.pieces_p(PieceType::PAWN))
-                | (ATTACK_TABLE.lance.attack(Color::WHITE, to, occupied)
-                    & self.pieces_p(PieceType::LANCE))
-                | (ATTACK_TABLE.knight.attack(Color::WHITE, to)
-                    & self.pieces_p(PieceType::KNIGHT))
-                | (ATTACK_TABLE.silver.attack(Color::WHITE, to)
-                    & self.pieces_p(PieceType::SILVER))
-                | (ATTACK_TABLE.gold.attack(Color::WHITE, to) & golds))
-                & self.pieces_c(Color::BLACK))
-            | (ATTACK_TABLE.bishop.magic(to).attack(occupied)
-                & (self.pieces_pp(PieceType::BISHOP, PieceType::HORSE)))
-            | (ATTACK_TABLE.rook.magic(to).attack(occupied)
-                & (self.pieces_pp(PieceType::ROOK, PieceType::DRAGON)))
-            | (ATTACK_TABLE.king.attack(to)
-                & (self.pieces_ppp(PieceType::KING, PieceType::HORSE, PieceType::DRAGON)))
+        &(&(&(&(&(&(&(&(&(&ATTACK_TABLE.pawn.attack(Color::BLACK, to)
+            & &self.pieces_p(PieceType::PAWN))
+            | &(&ATTACK_TABLE.lance.attack(Color::BLACK, to, occupied)
+                & &self.pieces_p(PieceType::LANCE)))
+            | &(&ATTACK_TABLE.knight.attack(Color::BLACK, to)
+                & &self.pieces_p(PieceType::KNIGHT)))
+            | &(&ATTACK_TABLE.silver.attack(Color::BLACK, to)
+                & &self.pieces_p(PieceType::SILVER)))
+            | &(&ATTACK_TABLE.gold.attack(Color::BLACK, to) & &golds))
+            & &self.pieces_c(Color::WHITE))
+            | &(&(&(&(&(&(&ATTACK_TABLE.pawn.attack(Color::WHITE, to)
+                & &self.pieces_p(PieceType::PAWN))
+                | &(&ATTACK_TABLE.lance.attack(Color::WHITE, to, occupied)
+                    & &self.pieces_p(PieceType::LANCE)))
+                | &(&ATTACK_TABLE.knight.attack(Color::WHITE, to)
+                    & &self.pieces_p(PieceType::KNIGHT)))
+                | &(&ATTACK_TABLE.silver.attack(Color::WHITE, to)
+                    & &self.pieces_p(PieceType::SILVER)))
+                | &(&ATTACK_TABLE.gold.attack(Color::WHITE, to) & &golds))
+                & &self.pieces_c(Color::BLACK)))
+            | &(&ATTACK_TABLE.bishop.magic(to).attack(occupied)
+                & &self.pieces_pp(PieceType::BISHOP, PieceType::HORSE)))
+            | &(&ATTACK_TABLE.rook.magic(to).attack(occupied)
+                & &self.pieces_pp(PieceType::ROOK, PieceType::DRAGON)))
+            | &(&ATTACK_TABLE.king.attack(to)
+                & &self.pieces_ppp(PieceType::KING, PieceType::HORSE, PieceType::DRAGON))
     }
     // sliders can be self.pieces_c(Color)
     // return (blockers of both colors, pinners)
@@ -1190,19 +1198,19 @@ impl PositionBase {
         let opp_of_sliders = color_of_sliders.inverse();
         let mut blockers = Bitboard::ZERO;
         let mut pinners = Bitboard::ZERO;
-        let snipers = ((ATTACK_TABLE.lance.pseudo_attack(opp_of_sliders, sq)
-            & self.pieces_p(PieceType::LANCE))
-            | (ATTACK_TABLE.bishop.magic(sq).pseudo_attack()
-                & self.pieces_pp(PieceType::BISHOP, PieceType::HORSE))
-            | (ATTACK_TABLE.rook.magic(sq).pseudo_attack()
-                & self.pieces_pp(PieceType::ROOK, PieceType::DRAGON)))
-            & *sliders;
+        let snipers = &(&(&(&ATTACK_TABLE.lance.pseudo_attack(opp_of_sliders, sq)
+            & &self.pieces_p(PieceType::LANCE))
+            | &(&ATTACK_TABLE.bishop.magic(sq).pseudo_attack()
+                & &self.pieces_pp(PieceType::BISHOP, PieceType::HORSE)))
+            | &(&ATTACK_TABLE.rook.magic(sq).pseudo_attack()
+                & &self.pieces_pp(PieceType::ROOK, PieceType::DRAGON)))
+            & sliders;
 
         for sq_of_sniper in snipers {
-            let pseudo_blockers = Bitboard::between_mask(sq, sq_of_sniper) & self.occupied_bb();
+            let pseudo_blockers = &Bitboard::between_mask(sq, sq_of_sniper) & &self.occupied_bb();
             if pseudo_blockers.count_ones() == 1 {
                 blockers |= pseudo_blockers;
-                if (pseudo_blockers & self.pieces_c(Color::new(self.piece_on(sq)))).to_bool() {
+                if (&pseudo_blockers & &self.pieces_c(Color::new(self.piece_on(sq)))).to_bool() {
                     pinners.set(sq_of_sniper);
                 }
             }
@@ -1573,7 +1581,7 @@ impl Position {
                 _ => unreachable!(),
             }
             if pt_dropped == PieceType::PAWN {
-                if (self.pieces_cp(us, PieceType::PAWN) & Bitboard::file_mask(File::new(to)))
+                if (&self.pieces_cp(us, PieceType::PAWN) & &Bitboard::file_mask(File::new(to)))
                     .to_bool()
                 {
                     // two pawns
@@ -1679,7 +1687,7 @@ impl Position {
                         .attackers_to(
                             us.inverse(),
                             to,
-                            &(self.occupied_bb() ^ Bitboard::square_mask(from)),
+                            &(&self.occupied_bb() ^ &Bitboard::square_mask(from)),
                         )
                         .to_bool()
                     {
@@ -1693,7 +1701,8 @@ impl Position {
                             // evasion.
                             let checker_sq = checkers.lsb_unchecked();
                             let movables =
-                                Bitboard::between_mask(checker_sq, self.king_square(us)) | checkers;
+                                &Bitboard::between_mask(checker_sq, self.king_square(us))
+                                    | &checkers;
                             if !movables.is_set(to) {
                                 return false;
                             }
@@ -1720,7 +1729,7 @@ impl Position {
                 .attackers_to(
                     them,
                     m.to(),
-                    &(self.occupied_bb() ^ Bitboard::square_mask(from)),
+                    &(&self.occupied_bb() ^ &Bitboard::square_mask(from)),
                 )
                 .to_bool();
         }
@@ -1737,7 +1746,7 @@ impl Position {
         let mut b;
         macro_rules! attacker_found {
             ($pt: expr) => {{
-                b = *side_to_move_attackers & self.pieces_p($pt);
+                b = side_to_move_attackers & &self.pieces_p($pt);
                 b.to_bool()
             }};
         }
@@ -1764,8 +1773,8 @@ impl Position {
         match Relation::new(sq, to) {
             Relation::MISC => {}
             Relation::FILE_NS => {
-                *attackers |= ATTACK_TABLE.lance.attack(Color::BLACK, to, occupied)
-                    & self.pieces_cppp(
+                *attackers |= &ATTACK_TABLE.lance.attack(Color::BLACK, to, occupied)
+                    & &self.pieces_cppp(
                         Color::WHITE,
                         PieceType::ROOK,
                         PieceType::DRAGON,
@@ -1773,8 +1782,8 @@ impl Position {
                     );
             }
             Relation::FILE_SN => {
-                *attackers |= ATTACK_TABLE.lance.attack(Color::WHITE, to, occupied)
-                    & self.pieces_cppp(
+                *attackers |= &ATTACK_TABLE.lance.attack(Color::WHITE, to, occupied)
+                    & &self.pieces_cppp(
                         Color::BLACK,
                         PieceType::ROOK,
                         PieceType::DRAGON,
@@ -1782,15 +1791,15 @@ impl Position {
                     );
             }
             Relation::RANK_EW | Relation::RANK_WE => {
-                *attackers |= ATTACK_TABLE.rook.magic(to).attack(occupied)
-                    & (self.pieces_pp(PieceType::ROOK, PieceType::DRAGON));
+                *attackers |= &ATTACK_TABLE.rook.magic(to).attack(occupied)
+                    & &self.pieces_pp(PieceType::ROOK, PieceType::DRAGON);
             }
             Relation::DIAG_NESW
             | Relation::DIAG_NWSE
             | Relation::DIAG_SWNE
             | Relation::DIAG_SENW => {
-                *attackers |= ATTACK_TABLE.bishop.magic(to).attack(occupied)
-                    & self.pieces_pp(PieceType::BISHOP, PieceType::HORSE);
+                *attackers |= &ATTACK_TABLE.bishop.magic(to).attack(occupied)
+                    & &self.pieces_pp(PieceType::BISHOP, PieceType::HORSE);
             }
             _ => unreachable!(),
         }
@@ -1827,13 +1836,13 @@ impl Position {
         if !is_drop {
             occupied ^= Bitboard::square_mask(m.from());
         }
-        attackers = self.attackers_to_both_color(to, &occupied) & occupied;
+        attackers = &self.attackers_to_both_color(to, &occupied) & &occupied;
         let us = self.side_to_move();
         let mut side_to_move = us.inverse();
         loop {
-            let mut side_to_move_attackers = attackers & self.pieces_c(side_to_move);
-            if !(self.pinners_for_king(side_to_move.inverse()) & !occupied).to_bool() {
-                side_to_move_attackers &= !self.blockers_for_king(side_to_move);
+            let mut side_to_move_attackers = &attackers & &self.pieces_c(side_to_move);
+            if !(&self.pinners_for_king(side_to_move.inverse()) & &!&occupied).to_bool() {
+                side_to_move_attackers &= !&self.blockers_for_king(side_to_move);
             }
             if !side_to_move_attackers.to_bool() {
                 break;
@@ -1845,7 +1854,7 @@ impl Position {
             balance = -balance - Value(1) - capture_piece_type_value(next_victim);
             if balance >= Value::ZERO {
                 if next_victim == PieceType::KING
-                    && (attackers & self.pieces_c(side_to_move)).to_bool()
+                    && (&attackers & &self.pieces_c(side_to_move)).to_bool()
                 {
                     side_to_move = side_to_move.inverse();
                 }
@@ -1889,18 +1898,18 @@ impl Position {
         );
         let pawn_file = File::new(sq_of_pawn);
         let pinned = self.blockers_for_king(color_of_difence);
-        let not_pinned_for_pawn_capture = !pinned | Bitboard::file_mask(pawn_file);
-        let can_captures = capture_candidates & not_pinned_for_pawn_capture;
+        let not_pinned_for_pawn_capture = &!&pinned | &Bitboard::file_mask(pawn_file);
+        let can_captures = &capture_candidates & &not_pinned_for_pawn_capture;
         if can_captures.to_bool() {
             return false;
         }
         // king escapes
         let ksq = self.king_square(color_of_difence);
         let mut king_escape_candidates =
-            ATTACK_TABLE.king.attack(ksq) & !self.pieces_c(color_of_difence);
+            &ATTACK_TABLE.king.attack(ksq) & &!&self.pieces_c(color_of_difence);
         debug_assert!(king_escape_candidates.is_set(sq_of_pawn));
         king_escape_candidates ^= Bitboard::square_mask(sq_of_pawn); // more faster than Bitboard::clear()
-        let occupied_after_drop_pawn = self.occupied_bb() ^ Bitboard::square_mask(sq_of_pawn);
+        let occupied_after_drop_pawn = &self.occupied_bb() ^ &Bitboard::square_mask(sq_of_pawn);
         for to in king_escape_candidates {
             if !self
                 .attackers_to(color_of_pawn, to, &occupied_after_drop_pawn)
@@ -1970,7 +1979,7 @@ impl Position {
 
         // 四 宣言側の敵陣三段目以内の駒は、玉を除いて10枚以上存在する。
         let own_pieces_count =
-            (self.pieces_c(us) & Bitboard::opponent_field_mask(us)).count_ones() - 1;
+            (&self.pieces_c(us) & &Bitboard::opponent_field_mask(us)).count_ones() - 1;
         if own_pieces_count < 10 {
             return false;
         }
@@ -1979,14 +1988,14 @@ impl Position {
         //     先手の場合28点以上の持点がある。
         //     後手の場合27点以上の持点がある。
         //     点数の対象となるのは、宣言側の持駒と敵陣三段目以内に存在する玉を除く宣言側の駒のみである。
-        let own_big_pieces_count = (self.pieces_cpppp(
+        let own_big_pieces_count = (&self.pieces_cpppp(
             us,
             PieceType::BISHOP,
             PieceType::ROOK,
             PieceType::HORSE,
             PieceType::DRAGON,
-        ) & Bitboard::opponent_field_mask(us))
-        .count_ones();
+        ) & &Bitboard::opponent_field_mask(us))
+            .count_ones();
         let own_small_pieces_count = own_pieces_count - own_big_pieces_count;
         let hand = self.hand(us);
         let val = own_small_pieces_count
@@ -2209,8 +2218,8 @@ impl Position {
 
             if gives_check {
                 self.st_mut().checkers_bb =
-                    self.attackers_to_except_king(us, self.king_square(them), &self.occupied_bb())
-                        & self.pieces_c(us);
+                    &self.attackers_to_except_king(us, self.king_square(them), &self.occupied_bb())
+                        & &self.pieces_c(us);
                 self.st_mut().continuous_checks[us.0 as usize] += 2;
             } else {
                 self.st_mut().checkers_bb = Bitboard::ZERO;
@@ -2345,19 +2354,19 @@ impl Position {
             | PieceType::PRO_SILVER => ATTACK_TABLE.gold.attack(checker_color, checker_sq),
             PieceType::BISHOP => ATTACK_TABLE.bishop.magic(checker_sq).pseudo_attack(),
             PieceType::HORSE => {
-                ATTACK_TABLE.bishop.magic(checker_sq).pseudo_attack()
-                    | ATTACK_TABLE.king.attack(checker_sq)
+                &ATTACK_TABLE.bishop.magic(checker_sq).pseudo_attack()
+                    | &ATTACK_TABLE.king.attack(checker_sq)
             }
             PieceType::ROOK => ATTACK_TABLE.rook.magic(checker_sq).pseudo_attack(),
             PieceType::DRAGON => {
                 let opp_king_color = checker_color.inverse();
                 let opp_king_sq = self.king_square(opp_king_color);
                 if Relation::new(opp_king_sq, checker_sq).is_diag() {
-                    ATTACK_TABLE.rook.magic(checker_sq).attack(occupied)
-                        | ATTACK_TABLE.king.attack(checker_sq)
+                    &ATTACK_TABLE.rook.magic(checker_sq).attack(occupied)
+                        | &ATTACK_TABLE.king.attack(checker_sq)
                 } else {
-                    ATTACK_TABLE.rook.magic(checker_sq).pseudo_attack()
-                        | ATTACK_TABLE.king.attack(checker_sq)
+                    &ATTACK_TABLE.rook.magic(checker_sq).pseudo_attack()
+                        | &ATTACK_TABLE.king.attack(checker_sq)
                 }
             }
             _ => unreachable!(),
@@ -2368,7 +2377,7 @@ impl Position {
         let ksq = self.king_square(them);
         let target = self.empty_bb();
         // king neighbor
-        let to_bb = target & ATTACK_TABLE.attack(PTT::PIECE_TYPE, them, ksq, &Bitboard::ALL);
+        let to_bb = &target & &ATTACK_TABLE.attack(PTT::PIECE_TYPE, them, ksq, &Bitboard::ALL);
         fn bb_of_king_cannot_escape(
             dropped_piece_type: PieceType,
             dropped_color: Color,
@@ -2391,11 +2400,10 @@ impl Position {
                 // support not exist.
                 continue;
             }
-            let king_escape_candidates = ATTACK_TABLE.king.attack(ksq)
-                & !self.pieces_c(them)
-                & !bb_of_king_cannot_escape(PTT::PIECE_TYPE, us, to);
+            let king_escape_candidates = &(&ATTACK_TABLE.king.attack(ksq) & &!&self.pieces_c(them))
+                & &!&bb_of_king_cannot_escape(PTT::PIECE_TYPE, us, to);
             for escape_sq in king_escape_candidates {
-                let tmp_occupied = self.occupied_bb() ^ Bitboard::square_mask(to);
+                let tmp_occupied = &self.occupied_bb() ^ &Bitboard::square_mask(to);
                 if !self.attackers_to(us, escape_sq, &tmp_occupied).to_bool() {
                     continue 'outer;
                 }
@@ -2421,12 +2429,12 @@ impl Position {
         if IsKnight::BOOL {
             let pc = Piece::new(us, PieceType::KNIGHT);
             let from_bb =
-                self.pieces_cp(us, PieceType::KNIGHT) & Bitboard::proximity_check_mask(pc, ksq);
+                &self.pieces_cp(us, PieceType::KNIGHT) & &Bitboard::proximity_check_mask(pc, ksq);
             for from in from_bb {
                 if self.blockers_for_king(us).is_set(from) {
                     continue;
                 }
-                let to_bb = ATTACK_TABLE.knight.attack(us, from) & !self.pieces_c(us);
+                let to_bb = &ATTACK_TABLE.knight.attack(us, from) & &!&self.pieces_c(us);
                 'to_loop: for to in to_bb {
                     if !ATTACK_TABLE.knight.attack(us, to).is_set(ksq) {
                         continue;
@@ -2442,13 +2450,13 @@ impl Position {
                     let (blockers, _pinners) =
                         pos_base.slider_blockers_and_pinners(&pos_base.pieces_c(us), us, ksq);
                     let king_escape_candidates =
-                        ATTACK_TABLE.king.attack(ksq) & !pos_base.pieces_c(them);
+                        &ATTACK_TABLE.king.attack(ksq) & &!&pos_base.pieces_c(them);
                     for escape_sq in king_escape_candidates {
                         if !pos_base
                             .attackers_to(
                                 us,
                                 escape_sq,
-                                &(pos_base.occupied_bb() ^ Bitboard::square_mask(ksq)),
+                                &(&pos_base.occupied_bb() ^ &Bitboard::square_mask(ksq)),
                             )
                             .to_bool()
                         {
@@ -2476,7 +2484,7 @@ impl Position {
                 }
             }
         } else {
-            let to_bb = ATTACK_TABLE.king.attack(ksq) & !self.pieces_c(us);
+            let to_bb = &ATTACK_TABLE.king.attack(ksq) & &!&self.pieces_c(us);
             for to in to_bb {
                 // from_bb includes knight. But unpromoted knight's move can't checkmate.
                 let from_bb = self.attackers_to_except_king(us, to, &self.occupied_bb());
@@ -2512,8 +2520,8 @@ impl Position {
                             pos_base.put_piece(pc.to_promote(), to);
                             pos_base.set_golds_bb();
                             let mut king_escape_candidates =
-                                ATTACK_TABLE.king.attack(ksq) & !pos_base.pieces_c(them);
-                            king_escape_candidates &= !self
+                                &ATTACK_TABLE.king.attack(ksq) & &!&pos_base.pieces_c(them);
+                            king_escape_candidates &= !&self
                                 .effect_bb_of_checker_where_king_cannot_escape(
                                     to,
                                     pc.to_promote(),
@@ -2525,7 +2533,7 @@ impl Position {
                                     .attackers_to(
                                         us,
                                         escape_sq,
-                                        &(tmp_occupied ^ Bitboard::square_mask(ksq)),
+                                        &(&tmp_occupied ^ &Bitboard::square_mask(ksq)),
                                     )
                                     .to_bool()
                                 {
@@ -2576,8 +2584,8 @@ impl Position {
                         let attack = ATTACK_TABLE.attack(pt, us, to, &tmp_occupied);
                         if attack.is_set(ksq) {
                             let mut king_escape_candidates =
-                                ATTACK_TABLE.king.attack(ksq) & !pos_base.pieces_c(them);
-                            king_escape_candidates &= !self
+                                &ATTACK_TABLE.king.attack(ksq) & &!&pos_base.pieces_c(them);
+                            king_escape_candidates &= !&self
                                 .effect_bb_of_checker_where_king_cannot_escape(
                                     to,
                                     pc,
@@ -2589,7 +2597,7 @@ impl Position {
                                     .attackers_to(
                                         us,
                                         escape_sq,
-                                        &(tmp_occupied ^ Bitboard::square_mask(ksq)),
+                                        &(&tmp_occupied ^ &Bitboard::square_mask(ksq)),
                                     )
                                     .to_bool()
                                 {
@@ -2679,26 +2687,26 @@ impl Position {
     }
     #[allow(dead_code)]
     fn is_ok(&self) -> bool {
-        if (self.pieces_c(Color::BLACK) & self.pieces_c(Color::WHITE)).to_bool() {
+        if (&self.pieces_c(Color::BLACK) & &self.pieces_c(Color::WHITE)).to_bool() {
             panic!("position is ng, line: {}", line!());
         }
-        if (self.pieces_c(Color::BLACK) | self.pieces_c(Color::WHITE)) != self.occupied_bb() {
+        if (&self.pieces_c(Color::BLACK) | &self.pieces_c(Color::WHITE)) != self.occupied_bb() {
             panic!("position is ng. line: {}", line!());
         }
-        if self.pieces_p(PieceType::PAWN)
-            ^ self.pieces_p(PieceType::LANCE)
-            ^ self.pieces_p(PieceType::KNIGHT)
-            ^ self.pieces_p(PieceType::SILVER)
-            ^ self.pieces_p(PieceType::BISHOP)
-            ^ self.pieces_p(PieceType::ROOK)
-            ^ self.pieces_p(PieceType::GOLD)
-            ^ self.pieces_p(PieceType::KING)
-            ^ self.pieces_p(PieceType::PRO_PAWN)
-            ^ self.pieces_p(PieceType::PRO_LANCE)
-            ^ self.pieces_p(PieceType::PRO_KNIGHT)
-            ^ self.pieces_p(PieceType::PRO_SILVER)
-            ^ self.pieces_p(PieceType::HORSE)
-            ^ self.pieces_p(PieceType::DRAGON)
+        if &(&(&(&(&(&(&(&(&(&(&(&(&self.pieces_p(PieceType::PAWN)
+            ^ &self.pieces_p(PieceType::LANCE))
+            ^ &self.pieces_p(PieceType::KNIGHT))
+            ^ &self.pieces_p(PieceType::SILVER))
+            ^ &self.pieces_p(PieceType::BISHOP))
+            ^ &self.pieces_p(PieceType::ROOK))
+            ^ &self.pieces_p(PieceType::GOLD))
+            ^ &self.pieces_p(PieceType::KING))
+            ^ &self.pieces_p(PieceType::PRO_PAWN))
+            ^ &self.pieces_p(PieceType::PRO_LANCE))
+            ^ &self.pieces_p(PieceType::PRO_KNIGHT))
+            ^ &self.pieces_p(PieceType::PRO_SILVER))
+            ^ &self.pieces_p(PieceType::HORSE))
+            ^ &self.pieces_p(PieceType::DRAGON)
             != self.occupied_bb()
         {
             panic!("position is ng. line: {}", line!());
@@ -2707,7 +2715,7 @@ impl Position {
             let pt0 = PieceType(i as i32);
             for j in i + 1..PieceType::NUM {
                 let pt1 = PieceType(j as i32);
-                if (self.pieces_p(pt0) & self.pieces_p(pt1)).to_bool() {
+                if (&self.pieces_p(pt0) & &self.pieces_p(pt1)).to_bool() {
                     panic!("position is ng. line: {}", line!());
                 }
             }
@@ -3056,51 +3064,51 @@ fn test_position_min_attacker() {
     let us = pos.side_to_move();
     let mut occupied = pos.occupied_bb();
     let mut attackers = pos.attackers_to_both_color(to, &occupied);
-    let side_to_move_attackers = attackers & pos.pieces_c(us);
+    let side_to_move_attackers = &attackers & &pos.pieces_c(us);
     let pt_attacker = pos.min_attacker(to, &side_to_move_attackers, &mut occupied, &mut attackers);
     assert_eq!(pt_attacker, PieceType::PAWN);
     let us = us.inverse();
-    let side_to_move_attackers = attackers & pos.pieces_c(us);
+    let side_to_move_attackers = &attackers & &pos.pieces_c(us);
     let pt_attacker = pos.min_attacker(to, &side_to_move_attackers, &mut occupied, &mut attackers);
     assert_eq!(pt_attacker, PieceType::LANCE);
     let us = us.inverse();
-    let side_to_move_attackers = attackers & pos.pieces_c(us);
+    let side_to_move_attackers = &attackers & &pos.pieces_c(us);
     let pt_attacker = pos.min_attacker(to, &side_to_move_attackers, &mut occupied, &mut attackers);
     assert_eq!(pt_attacker, PieceType::KNIGHT);
     let us = us.inverse();
-    let side_to_move_attackers = attackers & pos.pieces_c(us);
+    let side_to_move_attackers = &attackers & &pos.pieces_c(us);
     let pt_attacker = pos.min_attacker(to, &side_to_move_attackers, &mut occupied, &mut attackers);
     assert_eq!(pt_attacker, PieceType::SILVER);
     let us = us.inverse();
-    let side_to_move_attackers = attackers & pos.pieces_c(us);
+    let side_to_move_attackers = &attackers & &pos.pieces_c(us);
     let pt_attacker = pos.min_attacker(to, &side_to_move_attackers, &mut occupied, &mut attackers);
     assert_eq!(pt_attacker, PieceType::GOLD);
     let us = us.inverse();
-    let side_to_move_attackers = attackers & pos.pieces_c(us);
+    let side_to_move_attackers = &attackers & &pos.pieces_c(us);
     let pt_attacker = pos.min_attacker(to, &side_to_move_attackers, &mut occupied, &mut attackers);
     assert_eq!(pt_attacker, PieceType::GOLD);
     let us = us.inverse();
-    let side_to_move_attackers = attackers & pos.pieces_c(us);
+    let side_to_move_attackers = &attackers & &pos.pieces_c(us);
     let pt_attacker = pos.min_attacker(to, &side_to_move_attackers, &mut occupied, &mut attackers);
     assert_eq!(pt_attacker, PieceType::ROOK);
     let us = us.inverse();
-    let side_to_move_attackers = attackers & pos.pieces_c(us);
+    let side_to_move_attackers = &attackers & &pos.pieces_c(us);
     let pt_attacker = pos.min_attacker(to, &side_to_move_attackers, &mut occupied, &mut attackers);
     assert_eq!(pt_attacker, PieceType::BISHOP);
     let us = us.inverse();
-    let side_to_move_attackers = attackers & pos.pieces_c(us);
+    let side_to_move_attackers = &attackers & &pos.pieces_c(us);
     let pt_attacker = pos.min_attacker(to, &side_to_move_attackers, &mut occupied, &mut attackers);
     assert_eq!(pt_attacker, PieceType::LANCE);
     let us = us.inverse();
-    let side_to_move_attackers = attackers & pos.pieces_c(us);
+    let side_to_move_attackers = &attackers & &pos.pieces_c(us);
     let pt_attacker = pos.min_attacker(to, &side_to_move_attackers, &mut occupied, &mut attackers);
     assert_eq!(pt_attacker, PieceType::DRAGON);
     let us = us.inverse();
-    let side_to_move_attackers = attackers & pos.pieces_c(us);
+    let side_to_move_attackers = &attackers & &pos.pieces_c(us);
     let pt_attacker = pos.min_attacker(to, &side_to_move_attackers, &mut occupied, &mut attackers);
     assert_eq!(pt_attacker, PieceType::LANCE);
     let us = us.inverse();
-    let side_to_move_attackers = attackers & pos.pieces_c(us);
+    let side_to_move_attackers = &attackers & &pos.pieces_c(us);
     let pt_attacker = pos.min_attacker(to, &side_to_move_attackers, &mut occupied, &mut attackers);
     assert_eq!(pt_attacker, PieceType::KING);
 }

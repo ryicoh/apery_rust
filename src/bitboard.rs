@@ -13,10 +13,10 @@ impl Clone for Bitboard {
     }
 }
 
-impl BitOr for Bitboard {
+impl<'a, 'b> BitOr<&'b Bitboard> for &'a Bitboard {
     type Output = Bitboard;
 
-    fn bitor(self, other: Bitboard) -> Bitboard {
+    fn bitor(self, other: &'b Bitboard) -> Bitboard {
         Bitboard {
             v: [
                 self.value(0) | other.value(0),
@@ -26,10 +26,10 @@ impl BitOr for Bitboard {
     }
 }
 
-impl BitAnd for Bitboard {
+impl<'a, 'b> BitAnd<&'b Bitboard> for &'a Bitboard {
     type Output = Bitboard;
 
-    fn bitand(self, other: Bitboard) -> Bitboard {
+    fn bitand(self, other: &'b Bitboard) -> Bitboard {
         Bitboard {
             v: [
                 self.value(0) & other.value(0),
@@ -39,10 +39,10 @@ impl BitAnd for Bitboard {
     }
 }
 
-impl BitXor for Bitboard {
+impl<'a, 'b> BitXor<&'b Bitboard> for &'a Bitboard {
     type Output = Bitboard;
 
-    fn bitxor(self, other: Bitboard) -> Bitboard {
+    fn bitxor(self, other: &'b Bitboard) -> Bitboard {
         Bitboard {
             v: [
                 self.value(0) ^ other.value(0),
@@ -113,7 +113,7 @@ impl PartialEq for Bitboard {
     }
 }
 
-impl Not for Bitboard {
+impl Not for &Bitboard {
     type Output = Bitboard;
 
     fn not(self) -> Bitboard {
@@ -135,7 +135,7 @@ impl Bitboard {
     }
     #[allow(dead_code)]
     pub fn clear(&mut self, sq: Square) {
-        *self &= !Bitboard::square_mask(sq);
+        *self &= !&Bitboard::square_mask(sq);
     }
     pub fn xor(&mut self, sq: Square) {
         *self ^= Bitboard::square_mask(sq);
@@ -147,20 +147,20 @@ impl Bitboard {
         self.value(0).count_ones() + self.value(1).count_ones()
     }
     #[allow(dead_code)]
-    pub fn notand(self, other: Bitboard) -> Bitboard {
-        (!self) & other
+    pub fn notand(&self, other: &Bitboard) -> Bitboard {
+        &(!self) & other
     }
     pub fn to_bool(&self) -> bool {
         self.merge() != 0
     }
-    pub fn and_to_bool(self, other: Bitboard) -> bool {
+    pub fn and_to_bool(&self, other: &Bitboard) -> bool {
         (self & other).to_bool()
     }
     pub fn is_set(&self, sq: Square) -> bool {
-        self.and_to_bool(Bitboard::square_mask(sq))
+        self.and_to_bool(&Bitboard::square_mask(sq))
     }
     #[allow(dead_code)]
-    pub fn print(self) {
+    pub fn print(&self) {
         println!("{}", self.to_string());
     }
     fn pop_lsb_right_unchecked(&mut self) -> Square {
@@ -458,7 +458,7 @@ lazy_static! {
             [[Bitboard::ZERO; Square::NUM]; Square::NUM];
         for sq0 in Square::ALL.iter() {
             for sq1 in Square::ALL.iter() {
-                let occupied = Bitboard::square_mask(*sq0) | Bitboard::square_mask(*sq1);
+                let occupied = &Bitboard::square_mask(*sq0) | &Bitboard::square_mask(*sq1);
                 let deltas: Vec<Square> = match Relation::new(*sq0, *sq1) {
                     Relation::MISC => vec![],
                     Relation::FILE_NS | Relation::FILE_SN => vec![Square::DELTA_N, Square::DELTA_S],
@@ -471,8 +471,8 @@ lazy_static! {
                     }
                     _ => unreachable!(),
                 };
-                bbss[sq0.0 as usize][sq1.0 as usize] = sliding_attacks(&deltas, *sq0, &occupied)
-                    & sliding_attacks(&deltas, *sq1, &occupied);
+                bbss[sq0.0 as usize][sq1.0 as usize] = &sliding_attacks(&deltas, *sq0, &occupied)
+                    & &sliding_attacks(&deltas, *sq1, &occupied);
             }
         }
         bbss
@@ -582,16 +582,16 @@ impl<'a> Magic<'a> {
         let file = File::new(sq);
         let rank = Rank::new(sq);
         if file != File::FILE1 {
-            bb &= !Bitboard::FILE1_MASK;
+            bb &= !&Bitboard::FILE1_MASK;
         }
         if file != File::FILE9 {
-            bb &= !Bitboard::FILE9_MASK;
+            bb &= !&Bitboard::FILE9_MASK;
         }
         if rank != Rank::RANK1 {
-            bb &= !Bitboard::RANK1_MASK;
+            bb &= !&Bitboard::RANK1_MASK;
         }
         if rank != Rank::RANK9 {
-            bb &= !Bitboard::RANK9_MASK;
+            bb &= !&Bitboard::RANK9_MASK;
         }
         bb
     }
@@ -614,7 +614,7 @@ impl<'a> Magic<'a> {
     pub fn attack(&self, occupied: &Bitboard) -> Bitboard {
         unsafe {
             *self.attacks.get_unchecked(
-                ((self.mask & *occupied).merge().wrapping_mul(self.magic) >> self.shift) as usize,
+                ((&self.mask & occupied).merge().wrapping_mul(self.magic) >> self.shift) as usize,
             )
         }
     }
@@ -645,7 +645,7 @@ impl LanceAttackTable {
         10, 10, 10, 10, 10, 10, 10, 10, 10,
     ];
     fn attack_mask(sq: Square) -> Bitboard {
-        Bitboard::file_mask(File::new(sq)) & !(Bitboard::RANK1_MASK | Bitboard::RANK9_MASK)
+        &Bitboard::file_mask(File::new(sq)) & &!&(&Bitboard::RANK1_MASK | &Bitboard::RANK9_MASK)
     }
     fn index_to_occupied(index: usize, num_of_bits: u32, mask: &Bitboard) -> Bitboard {
         let mut tmp_bb: Bitboard = *mask;
@@ -987,8 +987,8 @@ impl<'a> AttackTable<'a> {
             | PieceType::PRO_KNIGHT
             | PieceType::PRO_SILVER => self.gold.attack(c, sq),
             PieceType::KING => self.king.attack(sq),
-            PieceType::HORSE => self.bishop.magic(sq).attack(occupied) | self.king.attack(sq),
-            PieceType::DRAGON => self.rook.magic(sq).attack(occupied) | self.king.attack(sq),
+            PieceType::HORSE => &self.bishop.magic(sq).attack(occupied) | &self.king.attack(sq),
+            PieceType::DRAGON => &self.rook.magic(sq).attack(occupied) | &self.king.attack(sq),
             _ => unreachable!(),
         }
     }
@@ -1326,14 +1326,14 @@ fn test_between_mask() {
                     if relation == Relation::MISC {
                         assert_eq!(Bitboard::between_mask(*sq0, *sq1).count_ones(), 0);
                     } else {
-                        let occupied = Bitboard::square_mask(*sq0) | Bitboard::square_mask(*sq1);
+                        let occupied = &Bitboard::square_mask(*sq0) | &Bitboard::square_mask(*sq1);
                         let attack;
                         if relation.is_cross() {
-                            attack = ATTACK_TABLE.rook.magic(*sq0).attack(&occupied)
-                                & ATTACK_TABLE.rook.magic(*sq1).attack(&occupied);
+                            attack = &ATTACK_TABLE.rook.magic(*sq0).attack(&occupied)
+                                & &ATTACK_TABLE.rook.magic(*sq1).attack(&occupied);
                         } else if relation.is_diag() {
-                            attack = ATTACK_TABLE.bishop.magic(*sq0).attack(&occupied)
-                                & ATTACK_TABLE.bishop.magic(*sq1).attack(&occupied);
+                            attack = &ATTACK_TABLE.bishop.magic(*sq0).attack(&occupied)
+                                & &ATTACK_TABLE.bishop.magic(*sq1).attack(&occupied);
                         } else {
                             unreachable!();
                         }
