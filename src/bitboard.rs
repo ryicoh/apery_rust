@@ -3,13 +3,14 @@ use std::fmt;
 use std::ops::*;
 
 #[derive(Copy)]
-pub struct Bitboard {
-    pub v: [u64; 2],
+pub union Bitboard {
+    v: [u64; 2],
+    m: std::arch::x86_64::__m128i,
 }
 
 impl Clone for Bitboard {
     fn clone(&self) -> Bitboard {
-        Bitboard { v: self.v }
+        unsafe { Bitboard { m: self.m } }
     }
 }
 
@@ -17,11 +18,10 @@ impl BitOr for Bitboard {
     type Output = Bitboard;
 
     fn bitor(self, other: Bitboard) -> Bitboard {
-        Bitboard {
-            v: [
-                self.value(0) | other.value(0),
-                self.value(1) | other.value(1),
-            ],
+        unsafe {
+            Bitboard {
+                m: std::arch::x86_64::_mm_or_si128(self.m, other.m),
+            }
         }
     }
 }
@@ -30,11 +30,10 @@ impl BitAnd for Bitboard {
     type Output = Bitboard;
 
     fn bitand(self, other: Bitboard) -> Bitboard {
-        Bitboard {
-            v: [
-                self.value(0) & other.value(0),
-                self.value(1) & other.value(1),
-            ],
+        unsafe {
+            Bitboard {
+                m: std::arch::x86_64::_mm_and_si128(self.m, other.m),
+            }
         }
     }
 }
@@ -43,33 +42,35 @@ impl BitXor for Bitboard {
     type Output = Bitboard;
 
     fn bitxor(self, other: Bitboard) -> Bitboard {
-        Bitboard {
-            v: [
-                self.value(0) ^ other.value(0),
-                self.value(1) ^ other.value(1),
-            ],
+        unsafe {
+            Bitboard {
+                m: std::arch::x86_64::_mm_xor_si128(self.m, other.m),
+            }
         }
     }
 }
 
 impl BitOrAssign for Bitboard {
     fn bitor_assign(&mut self, other: Bitboard) {
-        self.v[0] = self.value(0) | other.value(0);
-        self.v[1] = self.value(1) | other.value(1);
+        unsafe {
+            self.m = std::arch::x86_64::_mm_or_si128(self.m, other.m);
+        }
     }
 }
 
 impl BitAndAssign for Bitboard {
     fn bitand_assign(&mut self, other: Bitboard) {
-        self.v[0] = self.value(0) & other.value(0);
-        self.v[1] = self.value(1) & other.value(1);
+        unsafe {
+            self.m = std::arch::x86_64::_mm_and_si128(self.m, other.m);
+        }
     }
 }
 
 impl BitXorAssign for Bitboard {
     fn bitxor_assign(&mut self, other: Bitboard) {
-        self.v[0] = self.value(0) ^ other.value(0);
-        self.v[1] = self.value(1) ^ other.value(1);
+        unsafe {
+            self.m = std::arch::x86_64::_mm_xor_si128(self.m, other.m);
+        }
     }
 }
 
@@ -77,8 +78,13 @@ impl Shr<i32> for Bitboard {
     type Output = Bitboard;
 
     fn shr(self, other: i32) -> Bitboard {
-        Bitboard {
-            v: [self.v[0] >> other, self.v[1] >> other],
+        unsafe {
+            Bitboard {
+                v: [self.v[0] >> other, self.v[1] >> other],
+            }
+            //Bitboard {
+            //    m: std::arch::x86_64::_mm_srli_epi64(self.m, other),
+            //}
         }
     }
 }
@@ -87,29 +93,35 @@ impl Shl<i32> for Bitboard {
     type Output = Bitboard;
 
     fn shl(self, other: i32) -> Bitboard {
-        Bitboard {
-            v: [self.v[0] << other, self.v[1] << other],
+        unsafe {
+            Bitboard {
+                v: [self.v[0] << other, self.v[1] << other],
+            }
         }
     }
 }
 
 impl ShrAssign<i32> for Bitboard {
     fn shr_assign(&mut self, other: i32) {
-        self.v[0] = self.v[0] >> other;
-        self.v[1] = self.v[1] >> other;
+        unsafe {
+            self.v[0] = self.v[0] >> other;
+            self.v[1] = self.v[1] >> other;
+        }
     }
 }
 
 impl ShlAssign<i32> for Bitboard {
     fn shl_assign(&mut self, other: i32) {
-        self.v[0] = self.v[0] << other;
-        self.v[1] = self.v[1] << other;
+        unsafe {
+            self.v[0] = self.v[0] << other;
+            self.v[1] = self.v[1] << other;
+        }
     }
 }
 
 impl PartialEq for Bitboard {
     fn eq(&self, other: &Bitboard) -> bool {
-        self.v[0] == other.v[0] && self.v[1] == other.v[1]
+        self.value(0) == other.value(0) && self.value(1) == other.value(1)
     }
 }
 
@@ -125,7 +137,12 @@ impl Not for Bitboard {
 
 impl fmt::Debug for Bitboard {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Bitboard {{ v: [{}, {}] }}", self.v[0], self.v[1])
+        write!(
+            f,
+            "Bitboard {{ v: [{}, {}] }}",
+            self.value(0),
+            self.value(1)
+        )
     }
 }
 
@@ -148,7 +165,9 @@ impl Bitboard {
     }
     #[allow(dead_code)]
     pub fn notand(self, other: Bitboard) -> Bitboard {
-        (!self) & other
+        Self {
+            m: unsafe { std::arch::x86_64::_mm_andnot_si128(self.m, other.m) },
+        }
     }
     pub fn to_bool(&self) -> bool {
         self.merge() != 0
@@ -165,12 +184,16 @@ impl Bitboard {
     }
     fn pop_lsb_right_unchecked(&mut self) -> Square {
         let sq = Square(self.value(0).trailing_zeros() as i32);
-        self.v[0] &= self.v[0] - 1;
+        unsafe {
+            self.v[0] &= self.value(0) - 1;
+        }
         sq
     }
     fn pop_lsb_left_unchecked(&mut self) -> Square {
         let sq = Square((self.value(1).trailing_zeros() + 63) as i32);
-        self.v[1] &= self.v[1] - 1;
+        unsafe {
+            self.v[1] &= self.value(1) - 1;
+        }
         sq
     }
     fn lsb_right_unchecked(&self) -> Square {
